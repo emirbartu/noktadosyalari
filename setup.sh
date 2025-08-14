@@ -223,8 +223,6 @@ yay_packages=(
     "git"
     "python"
     "nvidia"
-    "visual-studio-code-bin"
-    "spotify"
     "discord"
     "vlc"
     "kitty"
@@ -233,8 +231,6 @@ yay_packages=(
     "flatpak"
     "neovim"
     "virt-manager"
-    "oh-my-zsh-git"
-    "zsh-theme-powerlevel10k-git"
 )
 
 latest_version=$(get_latest_release)
