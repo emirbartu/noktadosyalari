@@ -231,6 +231,8 @@ yay_packages=(
     "flatpak"
     "neovim"
     "virt-manager"
+    "libreoffice-still"
+    "visual-studio-code-bin"
 )
 
 latest_version=$(get_latest_release)
@@ -239,18 +241,7 @@ latest_version=$(get_latest_release)
 main() {
     echo -e "${GREEN}"
     cat <<"EOF"
- _   _           _       _       
-| \ | | ___   __| | __ _| |_ ___ 
-|  \| |/ _ \ / _' |/ _' | __/ _ \
-| |\  | (_) | (_| | (_| | ||  __/
-|_| \_|\___/ \__,_|\__,_|\__\___|
-                                 
- _       _       _     
-(_)_ __ | |_ ___| |__  
-| | '_ \| __/ __| '_ \ 
-| | | | | || (__| | | |
-|_|_| |_|\__\___|_| |_|
-                      
+
 EOF
     echo -e "${NC}"
     log "Starting unified setup process..."
