@@ -17,6 +17,33 @@ if [ ! -d $download_folder ]; then
     mkdir -p $download_folder
 fi
 
+# -----------------------------------------------------
+# Copy dotfiles and home files
+# -----------------------------------------------------
+copy_dotfiles() {
+    echo ":: Copying dotfiles to ~/.config"
+    # Create ~/.config if it doesn't exist
+    mkdir -p "$HOME/.config"
+    
+    # Copy contents of dotfilesfolder to ~/.config
+    if [ -d "dotfilesfolder" ]; then
+        cp -r dotfilesfolder/* "$HOME/.config/"
+        echo ":: Dotfiles copied to ~/.config"
+    else
+        echo ":: dotfilesfolder not found, skipping dotfiles copy"
+    fi
+    
+    echo ":: Copying home files to $HOME"
+    # Copy contents of homefolder directly to home directory
+    if [ -d "homefolder" ]; then
+        cp -r homefolder/.* "$HOME/" 2>/dev/null || true
+        cp -r homefolder/* "$HOME/" 2>/dev/null || true
+        echo ":: Home files copied to $HOME"
+    else
+        echo ":: homefolder not found, skipping home files copy"
+    fi
+}
+
 # Get latest tag from GitHub
 get_latest_release() {
     curl --silent "https://api.github.com/repos/$repo/releases/latest" |
@@ -215,6 +242,9 @@ echo ":: Cloning extra config repository ($repo2)..."
 git clone https://github.com/$repo2.git $download_folder/noktadosyalari
 
 echo ":: Download complete."
+
+# Copy dotfiles and home files
+copy_dotfiles
 
 cd $download_folder/dotfiles/bin/
 
