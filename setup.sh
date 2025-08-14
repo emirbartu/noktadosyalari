@@ -22,6 +22,7 @@ fi
 # -----------------------------------------------------
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # -----------------------------------------------------
@@ -37,6 +38,10 @@ success() {
 
 warn() {
     echo -e "${BLUE}[WARNING]${NC} $1"
+}
+
+error() {
+    echo -e "${RED}[ERROR]${NC} $1"
 }
 
 # -----------------------------------------------------
@@ -98,6 +103,8 @@ _checkCommandExists() {
 # Install required packages
 _installPackages() {
     toInstall=()
+    failed_packages=()
+    
     for pkg; do
         if [[ $(_isInstalled "${pkg}") == 0 ]]; then
             log "${pkg} is already installed."
@@ -105,27 +112,76 @@ _installPackages() {
         fi
         toInstall+=("${pkg}")
     done
+    
     if [[ "${toInstall[@]}" == "" ]]; then
         return
     fi
+    
     log "Installing packages: ${toInstall[*]}"
-    sudo pacman --noconfirm -S "${toInstall[@]}"
+    
+    # Try to install packages one by one to identify problematic ones
+    for pkg in "${toInstall[@]}"; do
+        if ! sudo pacman --noconfirm -S "${pkg}" 2>/dev/null; then
+            warn "Failed to install ${pkg}, skipping..."
+            failed_packages+=("${pkg}")
+        else
+            success "Installed ${pkg}"
+        fi
+    done
+    
+    if [[ "${#failed_packages[@]}" -gt 0 ]]; then
+        warn "Failed to install the following packages: ${failed_packages[*]}"
+        warn "You may need to install these manually or from AUR"
+    fi
 }
 
 # install yay if needed
 _installYay() {
-    _installPackages "base-devel"
+    log "Installing build dependencies..."
+    _installPackages "base-devel" "git"
+    
     SCRIPT=$(realpath "$0")
     temp_path=$(dirname "$SCRIPT")
-    git clone https://aur.archlinux.org/yay.git $download_folder/yay
-    cd $download_folder/yay
-    makepkg -si
-    cd $temp_path
+    
+    # Clean up any existing yay directory
+    rm -rf "$download_folder/yay"
+    
+    log "Cloning yay repository..."
+    if ! git clone https://aur.archlinux.org/yay.git "$download_folder/yay"; then
+        error "Failed to clone yay repository. Checking network connectivity..."
+        if ! ping -c 1 google.com >/dev/null 2>&1; then
+            error "No internet connection detected. Please check your network."
+            exit 1
+        fi
+        error "Network appears to be working but git clone failed. Trying alternative method..."
+        
+        # Try wget as fallback
+        cd "$download_folder"
+        if ! wget https://aur.archlinux.org/cgit/aur.git/snapshot/yay.tar.gz; then
+            error "Failed to download yay. Please check your internet connection."
+            exit 1
+        fi
+        tar -xzf yay.tar.gz
+        mv yay-* yay
+        rm yay.tar.gz
+    fi
+    
+    cd "$download_folder/yay"
+    if ! makepkg -si --noconfirm; then
+        error "Failed to build yay. Please check the error messages above."
+        exit 1
+    fi
+    cd "$temp_path"
     success "yay has been installed successfully."
 }
 
 # Install yay packages
 _installYayPackages() {
+    if ! _checkCommandExists "yay"; then
+        error "yay is not available. Cannot install AUR packages."
+        return 1
+    fi
+    
     toInstall=()
     for pkg in "${yay_packages[@]}"; do
         if yay -Q "$pkg" &>/dev/null; then
@@ -141,17 +197,24 @@ _installYayPackages() {
     fi
 
     log "Installing yay packages: ${toInstall[*]}"
-    yay --noconfirm -S "${toInstall[@]}"
+    
+    # Install packages one by one to handle failures gracefully
+    for pkg in "${toInstall[@]}"; do
+        if ! yay --noconfirm -S "$pkg"; then
+            warn "Failed to install ${pkg} from AUR, skipping..."
+        else
+            success "Installed ${pkg} from AUR"
+        fi
+    done
 }
 
-# Required pacman packages for the installer
+# Required pacman packages for the installer (removed problematic ones)
 packages=(
     "wget"
     "unzip"
     "gum"
     "rsync"
     "git"
-    "wget"
     "figlet"
     "xdg-user-dirs"    
     "hyprland"
@@ -181,7 +244,6 @@ packages=(
     "imagemagick"
     "jq"
     "xclip"
-    "kitty"
     "neovim"
     "htop"
     "blueman"
@@ -204,9 +266,6 @@ packages=(
     "gvfs"
     "wlogout"
     "waypaper"
-    "grimblast-git"
-    "bibata-cursor-theme"
-    "pacseek"
     "otf-font-awesome"
     "ttf-fira-sans"
     "ttf-fira-code"
@@ -214,11 +273,10 @@ packages=(
     "ttf-dejavu"
     "nwg-dock-hyprland"
     "power-profiles-daemon"
-    "python-pywalfox"
     "vlc"
 )
 
-# Required yay packages
+# Required yay packages (moved problematic pacman packages here)
 yay_packages=(
     "git"
     "python"
@@ -233,15 +291,42 @@ yay_packages=(
     "virt-manager"
     "libreoffice-still"
     "visual-studio-code-bin"
+    "bibata-cursor-theme"
+    "pacseek"
+    "python-pywalfox"
+    "grimblast-git"
 )
 
-latest_version=$(get_latest_release)
+# Simple choice function as fallback for gum
+simple_choice() {
+    local prompt="$1"
+    shift
+    local options=("$@")
+    
+    echo "$prompt"
+    for i in "${!options[@]}"; do
+        echo "$((i+1)). ${options[i]}"
+    done
+    
+    while true; do
+        read -p "Enter your choice (1-${#options[@]}): " choice
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#options[@]}" ]; then
+            echo "${options[$((choice-1))]}"
+            return
+        else
+            echo "Invalid choice. Please enter a number between 1 and ${#options[@]}."
+        fi
+    done
+}
 
 # Main setup function
 main() {
     echo -e "${GREEN}"
     cat <<"EOF"
-
+╔═══════════════════════════════════════╗
+║     ML4W Dotfiles Setup Script       ║
+║     Fixed for CachyOS                 ║
+╚═══════════════════════════════════════╝
 EOF
     echo -e "${NC}"
     log "Starting unified setup process..."
@@ -266,6 +351,14 @@ EOF
         esac
     done
     
+    # Check internet connectivity
+    log "Checking internet connectivity..."
+    if ! ping -c 1 google.com >/dev/null 2>&1; then
+        error "No internet connection detected. Please check your network and try again."
+        exit 1
+    fi
+    success "Internet connection verified"
+    
     # Setup main project (dotfiles) with package installation
     setup_main_project
     
@@ -284,6 +377,7 @@ setup_main_project() {
     rm -rf $download_folder/dotfiles* $download_folder/yay
 
     # Synchronize package databases
+    log "Updating package databases..."
     sudo pacman -Sy
 
     # Install required pacman packages
@@ -302,42 +396,87 @@ setup_main_project() {
     log "Installing AUR packages using yay..."
     _installYayPackages
 
+    # Get latest version
+    latest_version=$(get_latest_release)
+    if [ -z "$latest_version" ]; then
+        warn "Could not fetch latest version, using fallback"
+        latest_version="2.9.9"
+    fi
+
     # Select the dotfiles version
     log "Please choose between: "
     log "- ML4W Dotfiles for Hyprland $latest_version (latest stable release)"
     log "- ML4W Dotfiles for Hyprland Rolling Release (main branch including the latest commits)"
     echo
-    version=$(gum choose "main-release" "rolling-release" "cancel")
-    if [ "$version" == "main-release" ]; then
-        log "Installing Main Release"
-        git clone --branch $latest_version --depth 1 https://github.com/$repo.git $download_folder/dotfiles
-    elif [ "$version" == "rolling-release" ]; then
-        log "Installing Rolling Release"
-        git clone --depth 1 https://github.com/$repo.git $download_folder/dotfiles
-    elif [ "$version" == "cancel" ]; then
-        log "Setup canceled"
-        exit 130
+    
+    if _checkCommandExists "gum"; then
+        version=$(gum choose "main-release" "rolling-release" "cancel")
     else
-        log "Setup canceled"
-        exit 130
+        warn "gum not available, using fallback selection"
+        version=$(simple_choice "Choose version:" "main-release" "rolling-release" "cancel")
     fi
+    
+    case "$version" in
+        "main-release")
+            log "Installing Main Release ($latest_version)"
+            if ! git clone --branch $latest_version --depth 1 https://github.com/$repo.git $download_folder/dotfiles; then
+                error "Failed to clone main release, trying without specific tag"
+                git clone --depth 1 https://github.com/$repo.git $download_folder/dotfiles
+            fi
+            ;;
+        "rolling-release")
+            log "Installing Rolling Release"
+            git clone --depth 1 https://github.com/$repo.git $download_folder/dotfiles
+            ;;
+        "cancel")
+            log "Setup canceled"
+            exit 130
+            ;;
+        *)
+            log "Setup canceled"
+            exit 130
+            ;;
+    esac
 
     # Clone extra config repository
     log "Cloning extra config repository ($repo2)..."
-    git clone https://github.com/$repo2.git $download_folder/noktadosyalari
+    if ! git clone https://github.com/$repo2.git $download_folder/noktadosyalari; then
+        warn "Failed to clone extra config repository, continuing..."
+    fi
 
     log "Download complete."
 
     # Copy dotfiles and home files
     copy_dotfiles
 
-    cd $download_folder/dotfiles/bin/
+    if [ -d "$download_folder/dotfiles/bin/" ]; then
+        cd $download_folder/dotfiles/bin/
 
-    gum spin --spinner dot --title "Starting the installation now..." -- sleep 3
-    ./ml4w-hyprland-setup -m install
+        # Check if ml4w-hyprland-setup exists
+        if [ -f "./ml4w-hyprland-setup" ]; then
+            if _checkCommandExists "gum"; then
+                gum spin --spinner dot --title "Starting the installation now..." -- sleep 3
+            else
+                log "Starting the installation now..."
+                sleep 3
+            fi
+            
+            ./ml4w-hyprland-setup -m install
 
-    gum spin --spinner dot --title "Starting the setup now..." -- sleep 3
-    ./ml4w-hyprland-setup -p arch
+            if _checkCommandExists "gum"; then
+                gum spin --spinner dot --title "Starting the setup now..." -- sleep 3
+            else
+                log "Starting the setup now..."
+                sleep 3
+            fi
+            
+            ./ml4w-hyprland-setup -p arch
+        else
+            warn "ml4w-hyprland-setup not found, skipping ML4W setup"
+        fi
+    else
+        warn "dotfiles/bin directory not found, skipping ML4W setup"
+    fi
     
     success "Main project setup completed"
 }
