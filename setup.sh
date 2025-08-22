@@ -295,6 +295,7 @@ yay_packages=(
     "pacseek"
     "python-pywalfox"
     "grimblast-git"
+    "zsh-autosuggestions"
 )
 
 # Simple choice function as fallback for gum
