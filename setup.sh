@@ -1,515 +1,259 @@
-#!/bin/bash
-clear
+#!/usr/bin/env bash
 
-# -----------------------------------------------------
-# Repository
-# -----------------------------------------------------
-repo="mylinuxforwork/dotfiles"
-repo2="emirbartu/noktadosyalari"
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-# -----------------------------------------------------
-# Download Folder
-# -----------------------------------------------------
-download_folder="$HOME/.ml4w"
+# --------------------------------------------------------------
+# Library
+# --------------------------------------------------------------
 
-# Create download_folder if not exists
-if [ ! -d $download_folder ]; then
-    mkdir -p $download_folder
-fi
+source $SCRIPT_DIR/_lib.sh
 
-# -----------------------------------------------------
-# Color definitions
-# -----------------------------------------------------
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+# --------------------------------------------------------------
+# General Packages
+# --------------------------------------------------------------
 
-# -----------------------------------------------------
-# Logging functions
-# -----------------------------------------------------
-log() {
-    echo -e "${BLUE}[SETUP]${NC} $1"
-}
+source $SCRIPT_DIR/pkgs.sh
 
-success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
+# --------------------------------------------------------------
+# Distro related packages
+# --------------------------------------------------------------
 
-warn() {
-    echo -e "${BLUE}[WARNING]${NC} $1"
-}
-
-error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# -----------------------------------------------------
-# Copy dotfiles and home files
-# -----------------------------------------------------
-copy_dotfiles() {
-    log "Copying dotfiles to ~/.config"
-    # Create ~/.config if it doesn't exist
-    mkdir -p "$HOME/.config"
-    
-    # Copy contents of dotfilesfolder to ~/.config
-    if [ -d "dotfilesfolder" ]; then
-        cp -r dotfilesfolder/* "$HOME/.config/"
-        success "Dotfiles copied to ~/.config"
-    else
-        warn "dotfilesfolder not found, skipping dotfiles copy"
-    fi
-    
-    log "Copying home files to $HOME"
-    # Copy contents of homefolder directly to home directory
-    if [ -d "homefolder" ]; then
-        cp -r homefolder/.* "$HOME/" 2>/dev/null || true
-        cp -r homefolder/* "$HOME/" 2>/dev/null || true
-        success "Home files copied to $HOME"
-    else
-        warn "homefolder not found, skipping home files copy"
-    fi
-}
-
-# Get latest tag from GitHub
-get_latest_release() {
-    curl --silent "https://api.github.com/repos/$repo/releases/latest" |
-        grep '"tag_name":' |
-        sed -E 's/.*"([^"]+)".*/\1/'
-}
-
-# Check if package is installed
-_isInstalled() {
-    package="$1"
-    check="$(sudo pacman -Qs --color always "${package}" | grep "local" | grep "${package} ")"
-    if [ -n "${check}" ]; then
-        echo 0
-        return
-    fi
-    echo 1
-    return
-}
-
-# Check if command exists
-_checkCommandExists() {
-    package="$1"
-    if ! command -v $package >/dev/null; then
-        return 1
-    else
-        return 0
-    fi
-}
-
-# Install required packages
-_installPackages() {
-    toInstall=()
-    failed_packages=()
-    
-    for pkg; do
-        if [[ $(_isInstalled "${pkg}") == 0 ]]; then
-            log "${pkg} is already installed."
-            continue
-        fi
-        toInstall+=("${pkg}")
-    done
-    
-    if [[ "${toInstall[@]}" == "" ]]; then
-        return
-    fi
-    
-    log "Installing packages: ${toInstall[*]}"
-    
-    # Try to install packages one by one to identify problematic ones
-    for pkg in "${toInstall[@]}"; do
-        if ! sudo pacman --noconfirm -S "${pkg}" 2>/dev/null; then
-            warn "Failed to install ${pkg}, skipping..."
-            failed_packages+=("${pkg}")
-        else
-            success "Installed ${pkg}"
-        fi
-    done
-    
-    if [[ "${#failed_packages[@]}" -gt 0 ]]; then
-        warn "Failed to install the following packages: ${failed_packages[*]}"
-        warn "You may need to install these manually or from AUR"
-    fi
-}
-
-# install yay if needed
-_installYay() {
-    log "Installing build dependencies..."
-    _installPackages "base-devel" "git"
-    
-    SCRIPT=$(realpath "$0")
-    temp_path=$(dirname "$SCRIPT")
-    
-    # Clean up any existing yay directory
-    rm -rf "$download_folder/yay"
-    
-    log "Cloning yay repository..."
-    if ! git clone https://aur.archlinux.org/yay.git "$download_folder/yay"; then
-        error "Failed to clone yay repository. Checking network connectivity..."
-        if ! ping -c 1 google.com >/dev/null 2>&1; then
-            error "No internet connection detected. Please check your network."
-            exit 1
-        fi
-        error "Network appears to be working but git clone failed. Trying alternative method..."
-        
-        # Try wget as fallback
-        cd "$download_folder"
-        if ! wget https://aur.archlinux.org/cgit/aur.git/snapshot/yay.tar.gz; then
-            error "Failed to download yay. Please check your internet connection."
-            exit 1
-        fi
-        tar -xzf yay.tar.gz
-        mv yay-* yay
-        rm yay.tar.gz
-    fi
-    
-    cd "$download_folder/yay"
-    if ! makepkg -si --noconfirm; then
-        error "Failed to build yay. Please check the error messages above."
-        exit 1
-    fi
-    cd "$temp_path"
-    success "yay has been installed successfully."
-}
-
-# Install yay packages
-_installYayPackages() {
-    if ! _checkCommandExists "yay"; then
-        error "yay is not available. Cannot install AUR packages."
-        return 1
-    fi
-    
-    toInstall=()
-    for pkg in "${yay_packages[@]}"; do
-        if yay -Q "$pkg" &>/dev/null; then
-            log "${pkg} is already installed (yay)."
-        else
-            toInstall+=("$pkg")
-        fi
-    done
-
-    if [[ "${#toInstall[@]}" -eq 0 ]]; then
-        log "All yay packages already installed."
-        return
-    fi
-
-    log "Installing yay packages: ${toInstall[*]}"
-    
-    # Install packages one by one to handle failures gracefully
-    for pkg in "${toInstall[@]}"; do
-        if ! yay --noconfirm -S "$pkg"; then
-            warn "Failed to install ${pkg} from AUR, skipping..."
-        else
-            success "Installed ${pkg} from AUR"
-        fi
-    done
-}
-
-# Required pacman packages for the installer (removed problematic ones)
 packages=(
-    "wget"
-    "unzip"
-    "gum"
-    "rsync"
-    "git"
-    "figlet"
-    "xdg-user-dirs"    
+    # Hyprland ve ekleri
     "hyprland"
     "hyprpaper"
     "hyprlock"
     "hypridle"
     "hyprpicker"
-    "noto-fonts"
-    "noto-fonts-emoji"
-    "noto-fonts-cjk"
-    "noto-fonts-extra"
+    "waybar"
+    "rofi-wayland"
+    "nwg-look"
+    "nwg-dock-hyprland"
+    "wlogout"
+    "swaync"
+
+    # Sistem araçları
+    "xdg-user-dirs"
     "xdg-desktop-portal-gtk"
     "xdg-desktop-portal-hyprland"
     "libnotify"
-    "kitty"
-    "qt5-wayland"
-    "qt6-wayland"
-    "fastfetch"
-    "eza"
-    "python-pip"
-    "python-gobject"
-    "python-screeninfo"
-    "tumbler"
+    "polkit-gnome"
+    "power-profiles-daemon"
     "brightnessctl"
+    "blueman"
     "nm-connection-editor"
     "network-manager-applet"
-    "imagemagick"
-    "jq"
-    "xclip"
-    "neovim"
-    "htop"
-    "blueman"
-    "grim"
-    "slurp"
-    "cliphist"
-    "nwg-look"
-    "qt6ct"
-    "waybar"
-    "rofi-wayland"
-    "polkit-gnome"
+    "tumbler"
+    "gvfs"
+
+    # Terminal, editör ve CLI araçlar
+    "kitty"
     "zsh"
     "zsh-completions"
     "fzf"
+    "neovim"
+    "htop"
+    "eza"
+    "fastfetch"
+    "figlet"
+    "rsync"
+    "wget"
+    "unzip"
+    "jq"
+    "xclip"
+    "gum"
+    "python-pip"
+    "python-gobject"
+    "python-screeninfo"
+
+    # Ses / multimedya
     "pavucontrol"
+    "vlc"
+
+    # Temalar ve ikonlar
     "papirus-icon-theme"
     "breeze"
-    "flatpak"
-    "swaync"
-    "gvfs"
-    "wlogout"
-    "waypaper"
+    "bibata-cursor-theme"  # yay’dan geliyor ama buraya ekledim
+
+    # Fonts
     "otf-font-awesome"
     "ttf-fira-sans"
     "ttf-fira-code"
     "ttf-firacode-nerd"
     "ttf-dejavu"
-    "nwg-dock-hyprland"
-    "power-profiles-daemon"
-    "vlc"
-)
+    "noto-fonts"
+    "noto-fonts-emoji"
+    "noto-fonts-cjk"
+    "noto-fonts-extra"
 
-# Required yay packages (moved problematic pacman packages here)
-yay_packages=(
-    "git"
-    "python"
-    "nvidia"
+    # Görsel araçlar
+    "waypaper"
+    "imagemagick"
+    "grim"
+    "slurp"
+    "cliphist"
+    "loupe"
+
+    # Uygulamalar
     "discord"
-    "vlc"
-    "kitty"
-    "zsh"
+    "visual-studio-code-bin"
+    "libreoffice-still"
+    "virt-manager"
     "discover"
     "flatpak"
-    "neovim"
-    "virt-manager"
-    "libreoffice-still"
-    "visual-studio-code-bin"
-    "bibata-cursor-theme"
     "pacseek"
+
+    # Ek Python / AUR araçları
     "python-pywalfox"
     "grimblast-git"
     "zsh-autosuggestions"
+    "checkupdates-with-aur"
 )
 
-# Simple choice function as fallback for gum
-simple_choice() {
-    local prompt="$1"
-    shift
-    local options=("$@")
-    
-    echo "$prompt"
-    for i in "${!options[@]}"; do
-        echo "$((i+1)). ${options[i]}"
-    done
-    
-    while true; do
-        read -p "Enter your choice (1-${#options[@]}): " choice
-        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#options[@]}" ]; then
-            echo "${options[$((choice-1))]}"
-            return
-        else
-            echo "Invalid choice. Please enter a number between 1 and ${#options[@]}."
+_isInstalled() {
+    package="$1"
+    check="$(sudo pacman -Qs --color always "${package}" | grep "local" | grep "${package} ")"
+    if [ -n "${check}" ]; then
+        echo 0
+        return #true
+    fi
+    echo 1
+    return #false
+}
+
+_installYay() {
+    if [[ ! $(_isInstalled "base-devel") == 0 ]]; then
+        sudo pacman --noconfirm -S "base-devel"
+    fi
+    if [[ ! $(_isInstalled "git") == 0 ]]; then
+        sudo pacman --noconfirm -S "git"
+    fi
+    if [ -d $HOME/Downloads/yay-bin ]; then
+        rm -rf $HOME/Downloads/yay-bin
+    fi
+    SCRIPT=$(realpath "$0")
+    temp_path=$(dirname "$SCRIPT")
+    git clone https://aur.archlinux.org/yay-bin.git $HOME/Downloads/yay-bin
+    cd $HOME/Downloads/yay-bin
+    makepkg -si
+    cd $temp_path
+    echo ":: yay has been installed successfully."
+}
+
+_installPackages() {
+    for pkg; do
+        if [[ $(_isInstalled "${pkg}") == 0 ]]; then
+            echo ":: ${pkg} is already installed."
+            continue
         fi
+        yay --noconfirm -S "${pkg}"
     done
 }
 
-# Main setup function
-main() {
-    echo -e "${GREEN}"
-    cat <<"EOF"
-╔═══════════════════════════════════════╗
-║     ML4W Dotfiles Setup Script       ║
-║     Fixed for CachyOS                 ║
-╚═══════════════════════════════════════╝
-EOF
-    echo -e "${NC}"
-    log "Starting unified setup process..."
-    
-    # Ask user to confirm installation
-    while true; do
-        read -p "DO YOU WANT TO START THE INSTALLATION NOW? (Yy/Nn): " yn
-        case $yn in
-            [Yy]*)
-                log "Installation started."
-                echo
-                break
-                ;;
-            [Nn]*)
-                log "Installation canceled"
-                exit
-                break
-                ;;
-            *)
-                log "Please answer yes or no."
-                ;;
-        esac
-    done
-    
-    # Check internet connectivity
-    log "Checking internet connectivity..."
-    if ! ping -c 1 google.com >/dev/null 2>&1; then
-        error "No internet connection detected. Please check your network and try again."
-        exit 1
-    fi
-    success "Internet connection verified"
-    
-    # Setup main project (dotfiles) with package installation
-    setup_main_project
-    
-    # Setup personal dotfiles
-    setup_personal_dotfiles
-    
-    success "Setup completed successfully!"
-    log "You can now start Hyprland with 'Hyprland' command"
-}
+# --------------------------------------------------------------
+# Install Gum
+# --------------------------------------------------------------
 
-# Setup main project (dotfiles) with package installation
-setup_main_project() {
-    log "Setting up main project (dotfiles)..."
-    
-    # Remove existing download folder and zip files
-    rm -rf $download_folder/dotfiles* $download_folder/yay
+if [[ $(_checkCommandExists "gum") == 0 ]]; then
+    echo ":: gum is already installed"
+else
+    echo ":: The installer requires gum. gum will be installed now"
+    sudo pacman --noconfirm -S gum
+fi
 
-    # Synchronize package databases
-    log "Updating package databases..."
-    sudo pacman -Sy
+# --------------------------------------------------------------
+# Header
+# --------------------------------------------------------------
 
-    # Install required pacman packages
-    log "Checking that required packages are installed..."
-    _installPackages "${packages[@]}"
+_writeHeader "Arch"
 
-    # Install yay if needed
-    if _checkCommandExists "yay"; then
-        log "yay is already installed"
-    else
-        log "The installer requires yay. yay will be installed now"
-        _installYay
-    fi
+# --------------------------------------------------------------
+# Install yay if needed
+# --------------------------------------------------------------
 
-    # Install yay packages
-    log "Installing AUR packages using yay..."
-    _installYayPackages
+if [[ $(_checkCommandExists "yay") == 0 ]]; then
+    echo ":: yay is already installed"
+else
+    echo ":: The installer requires yay. yay will be installed now"
+    _installYay
+fi
 
-    # Get latest version
-    latest_version=$(get_latest_release)
-    if [ -z "$latest_version" ]; then
-        warn "Could not fetch latest version, using fallback"
-        latest_version="2.9.9"
-    fi
+# --------------------------------------------------------------
+# General
+# --------------------------------------------------------------
 
-    # Select the dotfiles version
-    log "Please choose between: "
-    log "- ML4W Dotfiles for Hyprland $latest_version (latest stable release)"
-    log "- ML4W Dotfiles for Hyprland Rolling Release (main branch including the latest commits)"
-    echo
-    
-    if _checkCommandExists "gum"; then
-        version=$(gum choose "main-release" "rolling-release" "cancel")
-    else
-        warn "gum not available, using fallback selection"
-        version=$(simple_choice "Choose version:" "main-release" "rolling-release" "cancel")
-    fi
-    
-    case "$version" in
-        "main-release")
-            log "Installing Main Release ($latest_version)"
-            if ! git clone --branch $latest_version --depth 1 https://github.com/$repo.git $download_folder/dotfiles; then
-                error "Failed to clone main release, trying without specific tag"
-                git clone --depth 1 https://github.com/$repo.git $download_folder/dotfiles
-            fi
-            ;;
-        "rolling-release")
-            log "Installing Rolling Release"
-            git clone --depth 1 https://github.com/$repo.git $download_folder/dotfiles
-            ;;
-        "cancel")
-            log "Setup canceled"
-            exit 130
-            ;;
-        *)
-            log "Setup canceled"
-            exit 130
-            ;;
-    esac
+_installPackages "${general[@]}"
 
-    # Clone extra config repository
-    log "Cloning extra config repository ($repo2)..."
-    if ! git clone https://github.com/$repo2.git $download_folder/noktadosyalari; then
-        warn "Failed to clone extra config repository, continuing..."
-    fi
+# --------------------------------------------------------------
+# Apps
+# --------------------------------------------------------------
 
-    log "Download complete."
+_installPackages "${apps[@]}"
 
-    # Copy dotfiles and home files
-    copy_dotfiles
+# --------------------------------------------------------------
+# Tools
+# --------------------------------------------------------------
 
-    if [ -d "$download_folder/dotfiles/bin/" ]; then
-        cd $download_folder/dotfiles/bin/
+_installPackages "${tools[@]}"
 
-        # Check if ml4w-hyprland-setup exists
-        if [ -f "./ml4w-hyprland-setup" ]; then
-            if _checkCommandExists "gum"; then
-                gum spin --spinner dot --title "Starting the installation now..." -- sleep 3
-            else
-                log "Starting the installation now..."
-                sleep 3
-            fi
-            
-            ./ml4w-hyprland-setup -m install
+# --------------------------------------------------------------
+# Packages
+# --------------------------------------------------------------
 
-            if _checkCommandExists "gum"; then
-                gum spin --spinner dot --title "Starting the setup now..." -- sleep 3
-            else
-                log "Starting the setup now..."
-                sleep 3
-            fi
-            
-            ./ml4w-hyprland-setup -p arch
-        else
-            warn "ml4w-hyprland-setup not found, skipping ML4W setup"
-        fi
-    else
-        warn "dotfiles/bin directory not found, skipping ML4W setup"
-    fi
-    
-    success "Main project setup completed"
-}
+_installPackages "${packages[@]}"
 
-# Setup personal dotfiles
-setup_personal_dotfiles() {
-    log "Setting up personal dotfiles..."
-    
-    # Copy dotfilesfolder contents to ~/.config
-    if [ -d "dotfilesfolder" ]; then
-        log "Copying dotfilesfolder to ~/.config..."
-        mkdir -p ~/.config
-        cp -r dotfilesfolder/* ~/.config/ 2>/dev/null || true
-        success "Dotfilesfolder contents copied to ~/.config"
-    else
-        warn "dotfilesfolder not found"
-    fi
-    
-    # Copy homefolder contents to ~
-    if [ -d "homefolder" ]; then
-        log "Copying homefolder to home directory..."
-        # Copy hidden files (starting with .)
-        cp -r homefolder/.* ~/ 2>/dev/null || true
-        # Copy regular files
-        cp -r homefolder/* ~/ 2>/dev/null || true
-        success "Homefolder contents copied to home directory"
-    else
-        warn "homefolder not found"
-    fi
-    
-    success "Personal dotfiles setup completed"
-}
+# --------------------------------------------------------------
+# Hyprland
+# --------------------------------------------------------------
 
-# Run main function
-main "$@"
+_installPackages "${hyprland[@]}"
+
+# --------------------------------------------------------------
+# Create .local/bin folder
+# --------------------------------------------------------------
+
+if [ ! -d $HOME/.local/bin ]; then
+    mkdir -p $HOME/.local/bin
+fi
+
+# --------------------------------------------------------------
+# Oh My Posh
+# --------------------------------------------------------------
+
+curl -s https://ohmyposh.dev/install.sh | bash -s -- -d ~/.local/bin
+
+# --------------------------------------------------------------
+# Prebuilt Packages
+# --------------------------------------------------------------
+
+source $SCRIPT_DIR/_prebuilt.sh
+
+# --------------------------------------------------------------
+# ML4W Apps
+# --------------------------------------------------------------
+
+source $SCRIPT_DIR/_ml4w-apps.sh
+
+# --------------------------------------------------------------
+# Flatpaks
+# --------------------------------------------------------------
+
+source $SCRIPT_DIR/_flatpaks.sh
+
+# --------------------------------------------------------------
+# Cursors
+# --------------------------------------------------------------
+
+source $SCRIPT_DIR/_cursors.sh
+
+# --------------------------------------------------------------
+# Fonts
+# --------------------------------------------------------------
+
+source $SCRIPT_DIR/_fonts.sh
+
+# --------------------------------------------------------------
+# Finish
+# --------------------------------------------------------------
+
+_finishMessage
