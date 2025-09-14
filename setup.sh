@@ -108,6 +108,7 @@ packages=(
     "grimblast-git"
     "zsh-autosuggestions"
     "checkupdates-with-aur"
+    "docker-desktop"
 )
 
 _isInstalled() {
