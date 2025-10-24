@@ -8,8 +8,22 @@ Copy the following url into the Dotfiles Installer and start the installation.
 ```
 https://raw.githubusercontent.com/emirbartu/noktadosyalari/main/hyprland-dotfiles-stable.dotinst
 ```
+#### Stable Release
 
-Check docs folder for more.
+Check docs folder for customization.
+
+#### Different files than [ML4W original dotfiles repository](https://github.com/mylinuxforwork/dotfiles)
+```sh
+dotfiles/dotfiles/.config/hypr/conf/keyboard.conf
+```
+
+```sh
+dotfiles/dotfiles/.config/zshrc/20-customization
+```
+
+```sh
+dotfiles/setup/setup-arch.sh
+```
 
 ## Inspirations
 
