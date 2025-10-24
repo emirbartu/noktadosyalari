@@ -12,7 +12,7 @@ https://raw.githubusercontent.com/emirbartu/noktadosyalari/main/hyprland-dotfile
 
 Check docs folder for customization.
 
-#### Different files than [ML4W original dotfiles repository](https://github.com/mylinuxforwork/dotfiles)
+#### Files that different than [ML4W original dotfiles repository](https://github.com/mylinuxforwork/dotfiles)
 ```sh
 dotfiles/dotfiles/.config/hypr/conf/keyboard.conf
 ```
