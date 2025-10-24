@@ -27,9 +27,7 @@ dotfiles/setup/setup-arch.sh
 
 ## Inspirations
 
-Thanks to ML4W 
-
-The following projects have inspired me:
+Thanks to ML4W and the following projects:
 
 - https://github.com/JaKooLit/Hyprland-Dots
 - https://github.com/prasanthrangan/hyprdots
