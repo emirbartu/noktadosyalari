@@ -22,32 +22,32 @@ echo -e "${BLUE}:: Homebrew güncelleniyor...${NC}"
 brew update
 
 formulae=(
-    "git"
-    "wget"
-    "curl"
-    "rsync"
-    "unzip"
-    "jq"
-    "fzf"
-    "neovim"
-    "htop"
-    "btop"
-    "eza"
-    "fastfetch"
-    "figlet"
-    "gum"
-    "python"
-    "node"
-    "imagemagick"
+    git
+    wget
+    curl
+    rsync
+    unzip
+    jq
+    fzf
+    neovim
+    htop
+    btop
+    eza
+    fastfetch
+    figlet
+    gum
+    python
+    node
+    imagemagick
 )
 
 casks=(
-    "kitty"
-    "visual-studio-code"
-    "discord"
-    "vlc"
-    "docker"
-    "font-fira-code-nerd-font"
+    kitty
+    visual-studio-code
+    discord
+    vlc
+    docker
+    font-fira-code-nerd-font
 )
 
 echo -e "${BLUE}:: CLI Araçları Kuruluyor...${NC}"
@@ -70,14 +70,18 @@ for cask in "${casks[@]}"; do
     fi
 done
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+DOTFILES_DIR="$SCRIPT_DIR/../macos/dotfiles"
+
 echo -e "${BLUE}:: GNU Stow ile dotfiles kuruluyor...${NC}"
-if [ -d "$HOME/macos-dotfiles" ]; then
-    cd "$HOME/macos-dotfiles"
+
+if [ -d "$DOTFILES_DIR" ]; then
+    cd "$DOTFILES_DIR"
     for dir in */; do
         stow -v "$dir"
     done
 else
-    echo -e "${YELLOW}:: macos-dotfiles klasörü bulunamadı.${NC}"
+    echo -e "${YELLOW}:: macos/dotfiles klasörü bulunamadı: $DOTFILES_DIR${NC}"
 fi
 
 echo -e "${GREEN}--------------------------------------------------------------${NC}"
