@@ -1,2 +1,0 @@
-keyboard.conf
-waypaper
