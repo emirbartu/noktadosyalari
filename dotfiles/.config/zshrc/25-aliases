@@ -18,7 +18,7 @@ alias vim='$EDITOR'
 alias ts='~/.config/ml4w/scripts/arch/snapshot.sh'
 alias wifi='nmtui'
 alias cleanup='~/.config/ml4w/scripts/arch/cleanup.sh'
-
+alias fuzzy='fzf --preview="cat {}" | xargs -r nvim'
 # -----------------------------------------------------
 # ML4W Apps
 # -----------------------------------------------------

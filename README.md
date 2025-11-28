@@ -8,7 +8,7 @@ https://raw.githubusercontent.com/emirbartu/noktadosyalari/main/hyprland-dotfile
 
 ## Inspirations
 
-Thanks to ML4W and the following projects:
+Thanks to ML4W](https://github.com/mylinuxforwork/dotfiles) and the following projects:
 
 - https://github.com/JaKooLit/Hyprland-Dots
 - https://github.com/prasanthrangan/hyprdots
