@@ -1,4 +1,4 @@
-# My Dotfiles for Hyprland
+# My Dotfiles for Archlinux and Macos
 Forked from ML4W and edited with my own updated config files. 
 
 Copy the following url into the Dotfiles Installer and start the installation. Or just clone the repo and run setup.sh
