@@ -317,6 +317,35 @@ source $SCRIPT_DIR/_cursors.sh
 source $SCRIPT_DIR/_fonts.sh
 
 # --------------------------------------------------------------
+# Install dotfiles using GNU Stow
+# --------------------------------------------------------------
+
+echo ":: Installing dotfiles with GNU Stow..."
+
+DOTFILES_DIR="$SCRIPT_DIR/../dotfiles"
+
+if [ -d "$DOTFILES_DIR" ]; then
+    cd "$DOTFILES_DIR"
+    echo ":: Installing dotfiles from $DOTFILES_DIR"
+    
+    # Install each directory in dotfiles
+    for dir in */; do
+        if [ -d "$dir" ]; then
+            echo ":: Stowing $dir"
+            stow -t ~ "$dir"
+            if [ $? -eq 0 ]; then
+                echo ":: Successfully installed $dir"
+            else
+                echo ":: Failed to install $dir"
+            fi
+        fi
+    done
+    echo ":: Dotfiles installation completed"
+else
+    echo ":: Warning: dotfiles directory not found at $DOTFILES_DIR"
+fi
+
+# --------------------------------------------------------------
 # Icons
 # --------------------------------------------------------------
 

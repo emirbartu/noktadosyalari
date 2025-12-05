@@ -50,4 +50,5 @@ tools=(
     "gvfs"
     "grim"
     "breeze"
+    "stow"
 )
