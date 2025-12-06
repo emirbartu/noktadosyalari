@@ -113,7 +113,7 @@ packages=(
     "flatpak"
     "pacseek"
     "docker-desktop"
-
+    "vicinae"
     # Ek Python / AUR araçları
     "python-pywalfox"
 
