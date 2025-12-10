@@ -1,5 +1,4 @@
 aerospace
-cursor
 discord
 docker-desktop
 font-hack-nerd-font
