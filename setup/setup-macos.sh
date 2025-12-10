@@ -5,6 +5,8 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 echo -e "${BLUE}:: macOS Kurulum Scripti Başlatılıyor...${NC}"
 
 if ! command -v brew &> /dev/null; then
@@ -88,7 +90,6 @@ else
     echo -e "${YELLOW}:: Cask dosyası bulunamadı: $casks_file${NC}"
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DOTFILES_DIR="$SCRIPT_DIR/../macos/dotfiles"
 
 echo -e "${BLUE}:: GNU Stow ile dotfiles kuruluyor...${NC}"
@@ -112,6 +113,113 @@ if [ -d "$DOTFILES_DIR" ]; then
     echo -e "${GREEN}:: Dotfiles kurulumu tamamlandı.${NC}"
 else
     echo -e "${YELLOW}:: macos/dotfiles klasörü bulunamadı: $DOTFILES_DIR${NC}"
+fi
+
+echo -e "${BLUE}:: Sketchybar kuruluyor...${NC}"
+if brew list --formula | grep -q "^sketchybar$"; then
+    echo -e "${GREEN}:: Sketchybar zaten yüklü.${NC}"
+else
+    echo -e "${YELLOW}:: Sketchybar bağımlılıkları kuruluyor...${NC}"
+    
+    # Install sketchybar dependencies
+    sketchybar_deps=("lua" "switchaudio-osx" "nowplaying-cli")
+    for dep in "${sketchybar_deps[@]}"; do
+        if brew list --formula | grep -q "^${dep}$"; then
+            echo -e "${GREEN}:: $dep zaten yüklü.${NC}"
+        else
+            echo -e "${YELLOW}:: $dep kuruluyor...${NC}"
+            brew install "$dep"
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}:: $dep başarıyla kuruldu.${NC}"
+            else
+                echo -e "${RED}:: $dep kurulumu başarısız.${NC}"
+            fi
+        fi
+    done
+    
+    # Add custom tap for sketchybar
+    echo -e "${BLUE}:: FelixKratz/formulae tap ekleniyor...${NC}"
+    brew tap FelixKratz/formulae
+    
+    # Install sketchybar
+    echo -e "${YELLOW}:: Sketchybar kuruluyor...${NC}"
+    brew install sketchybar
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}:: Sketchybar başarıyla kuruldu.${NC}"
+    else
+        echo -e "${RED}:: Sketchybar kurulumu başarısız.${NC}"
+    fi
+    
+    # Install fonts
+    echo -e "${BLUE}:: Sketchybar fontları kuruluyor...${NC}"
+    font_casks=("sf-symbols" "font-sf-mono" "font-sf-pro")
+    for font in "${font_casks[@]}"; do
+        if brew list --cask | grep -q "^${font}$"; then
+            echo -e "${GREEN}:: $font zaten yüklü.${NC}"
+        else
+            echo -e "${YELLOW}:: $font kuruluyor...${NC}"
+            brew install --cask "$font"
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}:: $font başarıyla kuruldu.${NC}"
+            else
+                echo -e "${RED}:: $font kurulumu başarısız.${NC}"
+            fi
+        fi
+    done
+    
+    # Download sketchybar-app-font
+    echo -e "${BLUE}:: sketchybar-app-font.ttf indiriliyor...${NC}"
+    if [ ! -f "$HOME/Library/Fonts/sketchybar-app-font.ttf" ]; then
+        curl -L https://github.com/kvndrsslr/sketchybar-app-font/releases/download/v2.0.5/sketchybar-app-font.ttf -o "$HOME/Library/Fonts/sketchybar-app-font.ttf"
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}:: sketchybar-app-font.ttf başarıyla indirildi.${NC}"
+        else
+            echo -e "${RED}:: sketchybar-app-font.ttf indirilemedi.${NC}"
+        fi
+    else
+        echo -e "${GREEN}:: sketchybar-app-font.ttf zaten yüklü.${NC}"
+    fi
+    
+    # Install SbarLua
+    echo -e "${BLUE}:: SbarLua kuruluyor...${NC}"
+    if [ ! -d "/usr/local/share/lua/5.4/sketchybar" ]; then
+        git clone https://github.com/FelixKratz/SbarLua.git /tmp/SbarLua
+        cd /tmp/SbarLua
+        make install
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}:: SbarLua başarıyla kuruldu.${NC}"
+        else
+            echo -e "${RED}:: SbarLua kurulumu başarısız.${NC}"
+        fi
+        cd - > /dev/null
+        rm -rf /tmp/SbarLua
+    else
+        echo -e "${GREEN}:: SbarLua zaten yüklü.${NC}"
+    fi
+fi
+
+# Build sketchybar helper binaries if configuration exists
+SKETCHYBAR_CONFIG_DIR="$HOME/.config/sketchybar"
+if [ -d "$SKETCHYBAR_CONFIG_DIR" ]; then
+    echo -e "${BLUE}:: Sketchybar helper binary'leri derleniyor...${NC}"
+    cd "$SKETCHYBAR_CONFIG_DIR/helpers"
+    make
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}:: Sketchybar helper binary'leri başarıyla derlendi.${NC}"
+    else
+        echo -e "${RED}:: Sketchybar helper binary'leri derlenemedi.${NC}"
+    fi
+    
+    # Start sketchybar service
+    echo -e "${BLUE}:: Sketchybar servisi başlatılıyor...${NC}"
+    brew services start sketchybar
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}:: Sketchybar servisi başarıyla başlatıldı.${NC}"
+    else
+        echo -e "${RED}:: Sketchybar servisi başlatılamadı.${NC}"
+    fi
+else
+    echo -e "${YELLOW}:: Sketchybar konfigürasyonu bulunamadı, helper binary'leri derlenemedi.${NC}"
 fi
 
 echo -e "${GREEN}--------------------------------------------------------------${NC}"
