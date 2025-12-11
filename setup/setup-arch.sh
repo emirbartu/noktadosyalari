@@ -351,6 +351,9 @@ fi
 
 source $SCRIPT_DIR/_icons.sh
 
+git config --global user.name "emirbartu"
+git config --global user.email "bartuekinci42@gmail.com"
+
 if [ -f "$DEST_DOTFILES_DIR/zshrc/.zshrc" ]; then
     echo ":: Installing custom .zshrc..."
     cp -f "$DEST_DOTFILES_DIR/zshrc/.zshrc" "$HOME/.zshrc"
