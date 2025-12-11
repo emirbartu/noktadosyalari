@@ -147,65 +147,19 @@ _installYay() {
     temp_path=$(dirname "$SCRIPT")
     git clone https://aur.archlinux.org/yay-bin.git $HOME/Downloads/yay-bin
     cd $HOME/Downloads/yay-bin
-    makepkg -si
+    makepkg -si --noconfirm
     cd $temp_path
     echo ":: yay has been installed successfully."
-}
-
-_installParu() {
-    if [[ ! $(_isInstalled "base-devel") == 0 ]]; then
-        sudo pacman --noconfirm -S "base-devel"
-    fi
-    if [[ ! $(_isInstalled "git") == 0 ]]; then
-        sudo pacman --noconfirm -S "git"
-    fi
-    if [ -d $HOME/Downloads/paru-bin ]; then
-        rm -rf $HOME/Downloads/paru-bin
-    fi
-    SCRIPT=$(realpath "$0")
-    temp_path=$(dirname "$SCRIPT")
-    git clone https://aur.archlinux.org/paru-bin.git $HOME/Downloads/paru-bin
-    cd $HOME/Downloads/paru-bin
-    makepkg -si
-    cd $temp_path
-    echo ":: paru has been installed successfully."
-}
-
-_selectAURHelper() {
-    echo ":: Please select your preferred AUR Helper"
-    echo
-    aur_helper=$(gum choose "yay" "paru")
-    if [ -z $aur_helper ]; then
-        _selectAURHelper
-    fi
-    echo ":: Using $aur_helper as AUR Helper"
 }
 
 _checkAURHelper() {
     if [[ $(_checkCommandExists "yay") == 0 ]]; then
         echo ":: yay is installed"
-        yay_installed="true"
-    fi
-    if [[ $(_checkCommandExists "paru") == 0 ]]; then
-        echo ":: paru is installed"
-        paru_installed="true"
-    fi
-    if [[ $yay_installed == "true" ]] && [[ $paru_installed == "false" ]]; then
-        echo ":: Using AUR Helper yay"
         aur_helper="yay"
-    elif [[ $yay_installed == "false" ]] && [[ $paru_installed == "true" ]]; then
-        echo ":: Using AUR Helper paru"
-        aur_helper="paru"
-    elif [[ $yay_installed == "false" ]] && [[ $paru_installed == "false" ]]; then
-        echo ":: No AUR Helper installed"
-        _selectAURHelper
-        if [[ $aur_helper == "yay" ]]; then
-            _installYay
-        else
-            _installParu
-        fi
     else
-        _selectAURHelper
+        echo ":: yay is not installed. Installing..."
+        _installYay
+        aur_helper="yay"
     fi
 }
 
@@ -322,17 +276,30 @@ source $SCRIPT_DIR/_fonts.sh
 
 echo ":: Installing dotfiles with GNU Stow..."
 
-DOTFILES_DIR="$SCRIPT_DIR/../dotfiles"
+SOURCE_DOTFILES_DIR="$SCRIPT_DIR/../dotfiles"
+DEST_DOTFILES_DIR="$HOME/.dotfiles"
 
-if [ -d "$DOTFILES_DIR" ]; then
-    cd "$DOTFILES_DIR"
-    echo ":: Installing dotfiles from $DOTFILES_DIR"
+# Backup existing dotfiles directory if it exists
+if [ -d "$DEST_DOTFILES_DIR" ]; then
+    echo ":: Backing up existing .dotfiles directory..."
+    mv "$DEST_DOTFILES_DIR" "$DEST_DOTFILES_DIR.bak.$(date +%Y%m%d-%H%M%S)"
+fi
+
+# Copy dotfiles to home directory
+echo ":: Copying dotfiles to $DEST_DOTFILES_DIR..."
+cp -r "$SOURCE_DOTFILES_DIR" "$DEST_DOTFILES_DIR"
+
+# Install dotfiles using Stow
+if [ -d "$DEST_DOTFILES_DIR" ]; then
+    cd "$DEST_DOTFILES_DIR"
+    echo ":: Installing dotfiles from $DEST_DOTFILES_DIR"
     
     # Install each directory in dotfiles
     for dir in */; do
         if [ -d "$dir" ]; then
             echo ":: Stowing $dir"
-            stow -t ~ "$dir"
+            stow -t "$HOME/.config" -D "$dir" # Remove existing symlinks first
+            stow -t "$HOME/.config" "$dir"
             if [ $? -eq 0 ]; then
                 echo ":: Successfully installed $dir"
             else
@@ -342,7 +309,7 @@ if [ -d "$DOTFILES_DIR" ]; then
     done
     echo ":: Dotfiles installation completed"
 else
-    echo ":: Warning: dotfiles directory not found at $DOTFILES_DIR"
+    echo ":: Warning: dotfiles directory not found at $DEST_DOTFILES_DIR"
 fi
 
 # --------------------------------------------------------------
