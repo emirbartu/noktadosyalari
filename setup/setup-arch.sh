@@ -233,11 +233,39 @@ _installPackages "${hyprland[@]}"
 if [ ! -d $HOME/.local/bin ]; then
     mkdir -p $HOME/.local/bin
 fi
+# --------------------------------------------------------------
+# Oh My Zsh & Plugins
+# --------------------------------------------------------------
+
+echo ":: Installing Oh My Zsh..."
+if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+else
+    echo ":: Oh My Zsh already installed"
+fi
+
+echo ":: Installing Oh My Zsh plugins..."
+ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
+
+# zsh-autosuggestions
+if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
+    git clone https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+fi
+
+# zsh-syntax-highlighting
+if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
+    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+fi
+
+# fast-syntax-highlighting
+if [ ! -d "$ZSH_CUSTOM/plugins/fast-syntax-highlighting" ]; then
+    git clone https://github.com/zdharma-continuum/fast-syntax-highlighting.git "$ZSH_CUSTOM/plugins/fast-syntax-highlighting"
+fi
 
 # --------------------------------------------------------------
 # Oh My Posh
 # --------------------------------------------------------------
-
+echo ":: Installing Oh My Posh..."
 curl -s https://ohmyposh.dev/install.sh | bash -s -- -d ~/.local/bin
 
 # --------------------------------------------------------------
@@ -317,6 +345,13 @@ fi
 # --------------------------------------------------------------
 
 source $SCRIPT_DIR/_icons.sh
+
+if [ -f "$DEST_DOTFILES_DIR/zshrc/.zshrc" ]; then
+    echo ":: Installing custom .zshrc..."
+    cp -f "$DEST_DOTFILES_DIR/zshrc/.zshrc" "$HOME/.zshrc"
+fi
+
+echo ":: Configuration complete! Please run 'source ~/.zshrc' or restart your terminal."
 
 # --------------------------------------------------------------
 # Finish
