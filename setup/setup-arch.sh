@@ -51,7 +51,12 @@ packages=(
     "tumbler"
     "gvfs"
     "pacman-contrib"
-
+ 	"qemu-full"
+    "qemu-desktop"
+    "dnsmasq" 
+    "iptables-nft"
+    "libvirt" 
+    "bridge-utils"
     # Terminal, editör ve CLI araçlar
     "kitty"
     "zsh"
