@@ -36,7 +36,7 @@ packages=(
     "swaync"
     "hyprshade"
     "uwsm"
-
+    "hyprshot-git"
     # Sistem araçları
     "xdg-user-dirs"
     "xdg-desktop-portal-gtk"
