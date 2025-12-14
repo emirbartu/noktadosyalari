@@ -12,7 +12,7 @@ _launch_walker() {
 
 # Use Rofi
 _launch_rofi() {
-    pkill rofi || rofi -show drun -replace -i  
+    pkill vicinae || vicinae toggle
 }
 
 if [ "$launcher" == "walker" ]; then
