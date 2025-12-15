@@ -24,13 +24,8 @@ You can reload waybar with SUPER + SHIFT + B
         "on-click": "chromium",
         "tooltip-format": "Open Chromium"
     },
-    "custom/quicklink_edge": {
-        "format": "",
-        "on-click": "edge",
-        "tooltip-format": "Open Edge"
-    },
     "custom/quicklink_firefox": {
-        "format": "",
+        "format": "",
         "on-click": "firefox",
         "tooltip-format": "Open Firefox"
     },
