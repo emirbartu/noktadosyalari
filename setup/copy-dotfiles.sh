@@ -1,60 +1,70 @@
 #!/usr/bin/env bash
-
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-yay_installed="false"
-paru_installed="false"
-aur_helper=""
 
 echo ":: Installing dotfiles with GNU Stow..."
 
 SOURCE_DOTFILES_DIR="$SCRIPT_DIR/../dotfiles"
-DEST_DOTFILES_DIR="$HOME/.dotfiles"
 
-# Backup existing dotfiles directory if it exists
-if [ -d "$DEST_DOTFILES_DIR" ]; then
-    echo ":: Backing up existing .dotfiles directory..."
-    mv "$DEST_DOTFILES_DIR" "$DEST_DOTFILES_DIR.bak.$(date +%Y%m%d-%H%M%S)"
+if [ ! -d "$SOURCE_DOTFILES_DIR" ]; then
+    echo ":: Error: Source dotfiles directory not found at $SOURCE_DOTFILES_DIR"
+    exit 1
 fi
 
-# Copy dotfiles to home directory
-echo ":: Copying dotfiles to $DEST_DOTFILES_DIR..."
-cp -r "$SOURCE_DOTFILES_DIR" "$DEST_DOTFILES_DIR"
+# Create backup directory with timestamp
+BACKUP_DIR="$HOME/.dotfiles-backup-$(date +%Y%m%d-%H%M%S)"
 
-# Install dotfiles using Stow
-if [ -d "$DEST_DOTFILES_DIR" ]; then
-    cd "$DEST_DOTFILES_DIR"
-    echo ":: Installing dotfiles from $DEST_DOTFILES_DIR"
+echo ":: Backing up conflicting files to $BACKUP_DIR..."
+cd "$SOURCE_DOTFILES_DIR"
+
+# Find all files/dirs that would conflict
+for item in $(find . -maxdepth 1 ! -path . ! -path ./.git ! -path './.git/*'); do
+    item_name=$(basename "$item")
+    target="$HOME/$item_name"
     
-    # Install each directory in dotfiles
-    for dir in */; do
-        if [ -d "$dir" ]; then
-            echo ":: Stowing $dir"
-            stow -t "$HOME/.config" -D "$dir" # Remove existing symlinks first
-            stow -t "$HOME/.config" "$dir"
-            if [ $? -eq 0 ]; then
-                echo ":: Successfully installed $dir"
-            else
-                echo ":: Failed to install $dir"
-            fi
+    if [ -e "$target" ] && [ ! -L "$target" ]; then
+        echo ":: Backing up $item_name"
+        mkdir -p "$BACKUP_DIR"
+        cp -a "$target" "$BACKUP_DIR/"
+        rm -rf "$target"
+    fi
+done
+
+# Also check .config subdirectories
+if [ -d ".config" ]; then
+    for item in .config/*; do
+        item_name=$(basename "$item")
+        target="$HOME/.config/$item_name"
+        
+        if [ -e "$target" ] && [ ! -L "$target" ]; then
+            echo ":: Backing up .config/$item_name"
+            mkdir -p "$BACKUP_DIR/.config"
+            cp -a "$target" "$BACKUP_DIR/.config/"
+            rm -rf "$target"
         fi
     done
-    echo ":: Dotfiles installation completed"
+fi
+
+# Now stow everything cleanly
+echo ":: Stowing dotfiles..."
+stow -v -t "$HOME" .
+
+if [ $? -eq 0 ]; then
+    echo ":: Successfully stowed all dotfiles"
+    if [ -d "$BACKUP_DIR" ]; then
+        echo ":: Backups saved to: $BACKUP_DIR"
+    fi
 else
-    echo ":: Warning: dotfiles directory not found at $DEST_DOTFILES_DIR"
+    echo ":: Failed to stow dotfiles"
+    exit 1
 fi
 
-# --------------------------------------------------------------
-# Icons
-# --------------------------------------------------------------
-
-source $SCRIPT_DIR/_icons.sh
-
-git config --global user.name "emirbartu"
-git config --global user.email "bartuekinci42@gmail.com"
-
-if [ -f "$DEST_DOTFILES_DIR/zshrc/.zshrc" ]; then
-    echo ":: Installing custom .zshrc..."
-    cp -f "$DEST_DOTFILES_DIR/zshrc/.zshrc" "$HOME/.zshrc"
+echo ""
+echo ":: ✓ Dotfiles installation completed"
+echo ":: ✓ Symlinks created from: $SOURCE_DOTFILES_DIR"
+if [ -d "$BACKUP_DIR" ]; then
+    echo ":: ✓ Old files backed up to: $BACKUP_DIR"
 fi
 
-echo ":: Configuration complete! Please run 'source ~/.zshrc' or restart your terminal."
+echo ""
+echo ":: Configuration complete!"
+echo ":: Run 'source ~/.zshrc' or restart your terminal."
