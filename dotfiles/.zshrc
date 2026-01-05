@@ -79,6 +79,7 @@ alias ts='~/.config/ml4w/scripts/arch/snapshot.sh'
 alias wifi='nmtui'
 alias cleanup='~/.config/ml4w/scripts/arch/cleanup.sh'
 alias fuzzy='fzf --preview="cat {}" | xargs -r nvim'
+alias keygen='ssh-keygen -t ed25519 -C "bartuekinci42@gmail.com"'
 # -----------------------------------------------------
 # ML4W Apps
 # -----------------------------------------------------
