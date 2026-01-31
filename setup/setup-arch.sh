@@ -125,6 +125,11 @@ packages=(
     # Wayland / QT destekleri
     "qt5-wayland"
     "qt6-wayland"
+    
+    # User Requested Apps
+    "firefox"
+    "dolphin"
+    "gnome-calculator"
 )
 
 _isInstalled() {
@@ -288,7 +293,7 @@ source $SCRIPT_DIR/_prebuilt.sh
 # ML4W Apps
 # --------------------------------------------------------------
 
-source $SCRIPT_DIR/_ml4w-apps.sh
+# source $SCRIPT_DIR/_ml4w-apps.sh
 
 # --------------------------------------------------------------
 # Flatpaks
@@ -332,19 +337,20 @@ if [ -d "$DEST_DOTFILES_DIR" ]; then
     cd "$DEST_DOTFILES_DIR"
     echo ":: Installing dotfiles from $DEST_DOTFILES_DIR"
     
-    # Install each directory in dotfiles
-    for dir in */; do
-        if [ -d "$dir" ]; then
-            echo ":: Stowing $dir"
-            stow -t "$HOME/.config" -D "$dir" # Remove existing symlinks first
-            stow -t "$HOME/.config" "$dir"
-            if [ $? -eq 0 ]; then
-                echo ":: Successfully installed $dir"
-            else
-                echo ":: Failed to install $dir"
-            fi
+    # Install .config directory
+    if [ -d ".config" ]; then
+        echo ":: Stowing .config"
+        stow -t "$HOME/.config" .config
+    fi
+    
+    # Link root files
+    for file in .zshrc .Xresources .gtkrc-2.0; do
+        if [ -f "$file" ]; then
+            echo ":: Linking $file"
+            ln -sf "$PWD/$file" "$HOME/$file"
         fi
     done
+
     echo ":: Dotfiles installation completed"
 else
     echo ":: Warning: dotfiles directory not found at $DEST_DOTFILES_DIR"
@@ -359,10 +365,10 @@ source $SCRIPT_DIR/_icons.sh
 git config --global user.name "emirbartu"
 git config --global user.email "bartuekinci42@gmail.com"
 
-if [ -f "$DEST_DOTFILES_DIR/zshrc/.zshrc" ]; then
-    echo ":: Installing custom .zshrc..."
-    cp -f "$DEST_DOTFILES_DIR/zshrc/.zshrc" "$HOME/.zshrc"
-fi
+# if [ -f "$DEST_DOTFILES_DIR/zshrc/.zshrc" ]; then
+#     echo ":: Installing custom .zshrc..."
+#     cp -f "$DEST_DOTFILES_DIR/zshrc/.zshrc" "$HOME/.zshrc"
+# fi
 
 echo ":: Configuration complete! Please run 'source ~/.zshrc' or restart your terminal."
 
